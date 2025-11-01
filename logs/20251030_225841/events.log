@@ -1,0 +1,7 @@
+2025-10-30T22:58:41.978562	--- System Information ---
+2025-10-30T22:58:41.979565	Operating System: Windows 10
+2025-10-30T22:58:41.979565	Processor: AMD64 Family 25 Model 33 Stepping 2, AuthenticAMD
+2025-10-30T22:58:41.979565	CPU Cores: 16
+2025-10-30T22:58:41.984562	Memory: 31.93 GB
+2025-10-30T22:58:41.984562	--------------------------
+2025-10-30T23:14:34.687539	Generated 68 pseudo-label(s) to data/pseudo_labels using C:\Users\PC\Downloads\ai_doantonghop\BCP_self_imple\models\baseline.pth
