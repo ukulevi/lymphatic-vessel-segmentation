@@ -134,9 +134,6 @@ def train_final(config: ExperimentConfig, logger: TrainingLogger, use_mean_teach
     """
     Stage 3: Train final model với Mean Teacher
     
-    Tự động chạy Stage 1 (baseline) nếu chưa có baseline.pth
-    Tự động chạy Stage 2 (pseudo-labels) nếu không dùng Mean Teacher và chưa có pseudo-labels
-    
     Args:
         config: Experiment configuration
         logger: Training logger
@@ -145,20 +142,6 @@ def train_final(config: ExperimentConfig, logger: TrainingLogger, use_mean_teach
     print("\n=== Stage 3: Training Final Model ===")
     if use_mean_teacher:
         print("Using Mean Teacher for semi-supervised learning")
-
-    # ===== TỰ ĐỘNG CHẠY STAGE 1 NẾU CHƯA CÓ BASELINE MODEL =====
-    baseline_path = os.path.join(config.paths.model_dir, "baseline.pth")
-    if not os.path.exists(baseline_path):
-        print("\n⚠️  Baseline model not found. Running Stage 1 first...")
-        train_baseline(config, logger)
-        print("✓ Stage 1 completed. Continuing with Stage 3...\n")
-    
-    # ===== TỰ ĐỘNG CHẠY STAGE 2 NẾU KHÔNG DÙNG MEAN TEACHER VÀ CHƯA CÓ PSEUDO-LABELS =====
-    if not use_mean_teacher:
-        if not os.path.exists(config.paths.pseudo_dir) or not os.listdir(config.paths.pseudo_dir):
-            print("\n⚠️  Pseudo-labels not found. Running Stage 2 first...")
-            generate_pseudo_labels(config, logger)
-            print("✓ Stage 2 completed. Continuing with Stage 3...\n")
 
     # Transforms
     train_transform = create_train_transform(p=config.augmentation.train_prob)
@@ -243,15 +226,8 @@ def train_final(config: ExperimentConfig, logger: TrainingLogger, use_mean_teach
         num_workers=config.data.num_workers,
     )
 
-    # Model và trainer - Load từ baseline.pth nếu có
+    # Model và trainer
     base_model = get_model(config.model)
-    
-    # Load weights từ baseline model để khởi tạo tốt hơn
-    if os.path.exists(baseline_path):
-        print(f"✓ Loading baseline model weights from {baseline_path}")
-        base_model = load_checkpoint(base_model, baseline_path, device=config.training.device)
-    else:
-        print("⚠️  Training from scratch (no baseline model found)")
     
     if use_mean_teacher:
         # Tạo student và teacher models
