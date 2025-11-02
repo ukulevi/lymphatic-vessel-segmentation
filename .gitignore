@@ -1,5 +1,11 @@
 *.mp4
 
+# Model checkpoints (quá lớn, không nên push lên GitHub)
+models/*.pth
+
+# Logs
+logs/
+
 # macOS
 .DS_Store
 .DS_Store?

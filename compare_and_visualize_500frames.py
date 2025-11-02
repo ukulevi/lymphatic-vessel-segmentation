@@ -16,16 +16,27 @@ from src.models.model_factory import get_model, load_checkpoint
 from src.data.datasets import VideoDataset
 from src.config import ExperimentConfig
 
-def overlay_mask_red(image, mask, alpha=0.5):
-    """Overlay mask màu đỏ lên image"""
+def overlay_mask_red(image, mask, alpha=0.6):
+    """Overlay mask màu đỏ rõ ràng lên image với border"""
     image_rgb = image.copy()
     if len(image_rgb.shape) == 2:
         image_rgb = cv2.cvtColor(image_rgb, cv2.COLOR_GRAY2RGB)
     
-    colored_mask = np.zeros_like(image_rgb)
-    colored_mask[mask > 0.5] = [255, 0, 0]  # Màu đỏ
+    # Tạo binary mask
+    binary_mask = (mask > 0.5).astype(np.uint8)
     
+    # Tạo colored mask - màu đỏ sáng hơn
+    colored_mask = np.zeros_like(image_rgb)
+    colored_mask[binary_mask == 1] = [255, 0, 0]  # Màu đỏ tươi
+    
+    # Overlay
     overlay = cv2.addWeighted(image_rgb, 1 - alpha, colored_mask, alpha, 0)
+    
+    # Thêm border màu đỏ để dễ nhận biết hơn
+    kernel = np.ones((3, 3), np.uint8)
+    border = cv2.dilate(binary_mask, kernel, iterations=1) - binary_mask
+    overlay[border == 1] = [255, 50, 50]  # Border màu đỏ nhạt hơn
+    
     return overlay
 
 def load_model(model_path, config):
@@ -69,7 +80,13 @@ def visualize_comparison(
     print("=" * 60)
     
     # Load config
-    config = ExperimentConfig.from_json(config_path) if Path(config_path).exists() else ExperimentConfig()
+    import json
+    if Path(config_path).exists():
+        with open(config_path) as f:
+            config_dict = json.load(f)
+        config = ExperimentConfig.from_dict(config_dict)
+    else:
+        config = ExperimentConfig()
     
     # Load models
     model1, device = load_model(model1_path, config)

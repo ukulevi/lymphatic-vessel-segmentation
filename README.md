@@ -124,12 +124,12 @@ python visualize_compare_models.py --dataset labeled --num_samples 6 --device mp
 python visualize_compare_models.py --dataset video_frames --num_samples 6 --device mps --output models/comparison_video_frames.png
 ```
 
-### Large-Scale Comparison with Overlay (500 Frames)
+### Large-Scale Comparison with Red Overlay (500 Frames)
 
-For a comprehensive comparison with overlay visualization on many frames:
+For a comprehensive comparison with **red overlay visualization** on many frames (recommended for easy visual inspection):
 
 ```bash
-python compare_and_visualize_500frames.py --num_samples 50 --output models/comparison_500frames_overlay.png
+python compare_and_visualize_500frames.py --num_samples 50 --output models/comparison_500frames_overlay_red.png
 ```
 
 **Options:**
@@ -137,15 +137,21 @@ python compare_and_visualize_500frames.py --num_samples 50 --output models/compa
 - `--model1`: Path to first model (default: `models/final_no_mt.pth`)
 - `--model2`: Path to second model (default: `models/final_mt.pth`)
 - `--frames_dir`: Directory containing frames (default: `data/video_frames`)
+- `--config`: Path to config file (default: `config.json`)
 - `--output`: Output path for visualization PNG
 
 **Output:** A single PNG file showing:
 - **Column 1:** Original input frames
-- **Column 2:** Model 1 (No Mean Teacher) predictions with red overlay
-- **Column 3:** Model 2 (Mean Teacher) predictions with red overlay
-- **Column 4:** Side-by-side comparison
+- **Column 2:** Model 1 (No Mean Teacher) predictions with **bright red overlay** and border
+- **Column 3:** Model 2 (Mean Teacher) predictions with **bright red overlay** and border
+- **Column 4:** Side-by-side comparison for direct visual comparison
 
-This visualization helps identify which model performs better on different frames and provides visual feedback on segmentation quality.
+**Features:**
+- **Red overlay** (alpha=0.6) with **red border** for clear visibility
+- Easy to distinguish predictions even on dark or similar-colored backgrounds
+- Shows predictions from both models side-by-side for direct comparison
+
+This visualization helps identify which model performs better on different frames and provides clear visual feedback on segmentation quality.
 
 ## GUI Application
 
@@ -263,10 +269,11 @@ python -m src.main final --use_mean_teacher
    ```
    Output: `models/final_mt.pth`
 
-6. **Compare and visualize both models:**
+6. **Compare and visualize both models with red overlay:**
    ```bash
-   python compare_and_visualize_500frames.py --num_samples 50 --output models/comparison_500frames_overlay.png
+   python compare_and_visualize_500frames.py --num_samples 50 --output models/comparison_500frames_overlay_red.png
    ```
+   This generates a visualization with bright red overlay for easy visual inspection of predictions from both models.
 
 For more details, see `HUONG_DAN_CHAY_STAGES.md` and `SO_SANH_MEAN_TEACHER_VS_PSEUDO_LABELS.md`.
 
