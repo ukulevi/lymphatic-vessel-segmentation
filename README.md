@@ -45,7 +45,12 @@ BCP_self_imple/
 
 2.  Prepare data:
     -   Place your labeled images and JSON annotations in `data/annotated/`.
-    -   Place your unlabeled video frames in `data/video/`.
+    -   Place your unlabeled video file in `data/video/` (e.g., `data/video/your_video.mp4`).
+    -   **Extract frames from video** (recommended: 500 frames):
+        ```bash
+        python extract_video_frames.py --num_frames 500 --video data/video/your_video.mp4 --output data/video_frames
+        ```
+        This will extract frames evenly distributed from the video and save them to `data/video_frames/`.
     -   Convert the JSON annotations to binary masks:
         ```bash
         python tools/scripts/convert_json_to_mask.py --input data/annotated --output data/masks
@@ -95,7 +100,9 @@ python -m src.main all --use_mean_teacher --config config.json
 
 For a quick test on a small sample dataset, you can add the `--small-test` flag to any of the commands above.
 
-## Prediction Plots
+## Visualization and Comparison
+
+### Basic Visualization
 
 To visualize the model's predictions on a few sample images, you can use the `--visualize` flag when running the training command.
 
@@ -103,15 +110,42 @@ To visualize the model's predictions on a few sample images, you can use the `--
 python -m src.main all --config config.json --visualize
 ```
 
-This will save a PNG file (e.g., `baseline_predictions.png` or `final_predictions.png`) in the `models` directory. The plot contains 5 panels for each sample image:
+This will save a PNG file (e.g., `baseline_predictions.png` or `final_predictions.png`) in the `models` directory.
 
-1.  **Input:** The original input image.
-2.  **Ground Truth:** The ground truth segmentation mask.
-3.  **Prediction:** The model's predicted segmentation mask.
-4.  **GT Overlay:** The ground truth mask overlaid on the input image (in green).
-5.  **Pred Overlay:** The prediction mask overlaid on the input image (in red).
+### Compare Two Models (Mean Teacher vs Without Mean Teacher)
 
-This visualization is useful for qualitatively assessing the model's performance.
+After training both models (with and without Mean Teacher), you can compare them using the visualization script:
+
+```bash
+# Compare on labeled data
+python visualize_compare_models.py --dataset labeled --num_samples 6 --device mps --output models/comparison_labeled.png
+
+# Compare on unlabeled video frames (500 frames)
+python visualize_compare_models.py --dataset video_frames --num_samples 6 --device mps --output models/comparison_video_frames.png
+```
+
+### Large-Scale Comparison with Overlay (500 Frames)
+
+For a comprehensive comparison with overlay visualization on many frames:
+
+```bash
+python compare_and_visualize_500frames.py --num_samples 50 --output models/comparison_500frames_overlay.png
+```
+
+**Options:**
+- `--num_samples`: Number of frames to visualize (default: 50, can increase up to 500)
+- `--model1`: Path to first model (default: `models/final_no_mt.pth`)
+- `--model2`: Path to second model (default: `models/final_mt.pth`)
+- `--frames_dir`: Directory containing frames (default: `data/video_frames`)
+- `--output`: Output path for visualization PNG
+
+**Output:** A single PNG file showing:
+- **Column 1:** Original input frames
+- **Column 2:** Model 1 (No Mean Teacher) predictions with red overlay
+- **Column 3:** Model 2 (Mean Teacher) predictions with red overlay
+- **Column 4:** Side-by-side comparison
+
+This visualization helps identify which model performs better on different frames and provides visual feedback on segmentation quality.
 
 ## GUI Application
 
@@ -197,7 +231,44 @@ The training process has been improved to achieve better results:
 python -m src.main final --use_mean_teacher
 ```
 
-For more details, see `HUONG_DAN_CHAY_STAGES.md`.
+### Complete Workflow with 500 Frames
+
+**Step-by-step workflow:**
+
+1. **Extract 500 frames from video:**
+   ```bash
+   python extract_video_frames.py --num_frames 500
+   ```
+
+2. **Train baseline model:**
+   ```bash
+   python -m src.main baseline --config config.json
+   ```
+
+3. **Generate pseudo-labels (for comparison with non-Mean Teacher method):**
+   ```bash
+   python -m src.main pseudo --config config.json
+   ```
+   This generates pseudo-labels from 500 frames in `data/video_frames/`.
+
+4. **Train final model WITHOUT Mean Teacher:**
+   ```bash
+   python -m src.main final --config config.json
+   ```
+   Output: `models/final_no_mt.pth`
+
+5. **Train final model WITH Mean Teacher:**
+   ```bash
+   python -m src.main final --use_mean_teacher --config config.json
+   ```
+   Output: `models/final_mt.pth`
+
+6. **Compare and visualize both models:**
+   ```bash
+   python compare_and_visualize_500frames.py --num_samples 50 --output models/comparison_500frames_overlay.png
+   ```
+
+For more details, see `HUONG_DAN_CHAY_STAGES.md` and `SO_SANH_MEAN_TEACHER_VS_PSEUDO_LABELS.md`.
 
 ## References
 
