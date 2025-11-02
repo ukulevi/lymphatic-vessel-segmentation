@@ -110,21 +110,32 @@ def generate_pseudo_labels(config: ExperimentConfig, logger: TrainingLogger):
     model = load_checkpoint(model, ckpt_path, device=config.training.device)
 
     # Generate pseudo-labels
+    # Thử tìm unlabeled data từ nhiều nguồn (ưu tiên video_frames)
     os.makedirs(config.paths.pseudo_dir, exist_ok=True)
-    saved = generate_pseudo_labels_impl(
-        model=model,
-        unlabeled_dir=config.paths.unlabeled_dir,
-        output_dir=config.paths.pseudo_dir,
-        device=config.training.device,
-    )
-    # Fallback: if no frames in unlabeled_dir, try labeled_dir to allow quick smoke-tests
-    if saved == 0 and os.path.isdir(config.paths.labeled_dir):
-        print("No unlabeled frames found; falling back to labeled_dir for pseudo-labels.")
-        saved = generate_pseudo_labels_impl(
-            model=model,
-            unlabeled_dir=config.paths.labeled_dir,
-            output_dir=config.paths.pseudo_dir,
-            device=config.training.device,
+    
+    unlabeled_dirs = [
+        "data/video_frames",  # Ưu tiên: frames đã extract từ video
+        config.paths.unlabeled_dir,  # Thư mục video gốc
+        config.paths.labeled_dir,  # Fallback cuối cùng: chỉ để smoke-test
+    ]
+    
+    saved = 0
+    for unlabeled_dir in unlabeled_dirs:
+        if os.path.exists(unlabeled_dir) and os.path.isdir(unlabeled_dir):
+            print(f"Trying to generate pseudo-labels from: {unlabeled_dir}")
+            saved = generate_pseudo_labels_impl(
+                model=model,
+                unlabeled_dir=unlabeled_dir,
+                output_dir=config.paths.pseudo_dir,
+                device=config.training.device,
+            )
+            if saved > 0:
+                print(f"✓ Generated {saved} pseudo-labels from {unlabeled_dir}")
+                break
+    
+    if saved == 0:
+        raise RuntimeError(
+            f"No unlabeled frames found in any directory. Tried: {unlabeled_dirs}"
         )
     logger.log_message(
         f"Generated {saved} pseudo-label(s) to {config.paths.pseudo_dir} using {ckpt_path}"
@@ -230,7 +241,18 @@ def train_final(config: ExperimentConfig, logger: TrainingLogger, use_mean_teach
     base_model = get_model(config.model)
     
     if use_mean_teacher:
-        # Tạo student và teacher models
+        # Load baseline model làm điểm khởi đầu (QUAN TRỌNG!)
+        baseline_path = os.path.join(config.paths.model_dir, "baseline.pth")
+        if not os.path.exists(baseline_path):
+            raise RuntimeError(
+                f"Baseline model not found at {baseline_path}.\n"
+                "Mean Teacher requires a pre-trained baseline model. Run Stage 1 first."
+            )
+        print(f"Loading baseline model from {baseline_path}...")
+        base_model = load_checkpoint(base_model, baseline_path, device=config.training.device)
+        print("✓ Loaded baseline model weights")
+        
+        # Tạo student và teacher models từ baseline
         student_model, teacher_model = create_mean_teacher_models(base_model)
         
         # Optimizer chỉ cho student
@@ -274,29 +296,28 @@ def train_final(config: ExperimentConfig, logger: TrainingLogger, use_mean_teach
         pseudo_ds_list = []
         # Pseudo-labeled data KHÔNG dùng augmentation (chỉ resize + normalize)
         # Vì pseudo-labels đã được generate từ model, augmentation có thể làm sai lệch
-        try:
-            ds_unl = PseudoLabeledDataset(
-                image_root=config.paths.unlabeled_dir,
-                mask_dir=config.paths.pseudo_dir,
-                transform=val_transform,  # KHÔNG augmentation cho pseudo-labels
-                target_size=config.data.image_size,
-            )
-            if len(ds_unl) > 0:
-                pseudo_ds_list.append(ds_unl)
-        except Exception:
-            pass
         
-        try:
-            ds_lab = PseudoLabeledDataset(
-                image_root=config.paths.labeled_dir,
-                mask_dir=config.paths.pseudo_dir,
-                transform=val_transform,  # KHÔNG augmentation cho pseudo-labels
-                target_size=config.data.image_size,
-            )
-            if len(ds_lab) > 0:
-                pseudo_ds_list.append(ds_lab)
-        except Exception:
-            pass
+        # Thử tìm images từ nhiều nguồn (ưu tiên video_frames)
+        image_dirs = [
+            "data/video_frames",  # Ưu tiên: frames đã extract từ video
+            config.paths.unlabeled_dir,  # Thư mục video gốc
+        ]
+        
+        for image_dir in image_dirs:
+            try:
+                if os.path.exists(image_dir) and os.path.isdir(image_dir):
+                    ds_unl = PseudoLabeledDataset(
+                        image_root=image_dir,
+                        mask_dir=config.paths.pseudo_dir,
+                        transform=val_transform,  # KHÔNG augmentation cho pseudo-labels
+                        target_size=config.data.image_size,
+                    )
+                    if len(ds_unl) > 0:
+                        print(f"✓ Found {len(ds_unl)} pseudo-labeled pairs from {image_dir}")
+                        pseudo_ds_list.append(ds_unl)
+                        break  # Chỉ cần 1 source
+            except Exception as e:
+                continue
         
         if not pseudo_ds_list:
             raise RuntimeError(
@@ -316,9 +337,12 @@ def train_final(config: ExperimentConfig, logger: TrainingLogger, use_mean_teach
         trainer = Trainer(base_model, config.training, logger)
         model = trainer.train(train_loader, val_loader)
 
-    # Save final model
+    # Save final model với tên khác nhau cho Mean Teacher và không Mean Teacher
     os.makedirs(config.paths.model_dir, exist_ok=True)
-    save_path = os.path.join(config.paths.model_dir, "final.pth")
+    if use_mean_teacher:
+        save_path = os.path.join(config.paths.model_dir, "final_mt.pth")
+    else:
+        save_path = os.path.join(config.paths.model_dir, "final_no_mt.pth")
     save_checkpoint(model, save_path)
     logger.log_model(save_path)
     print(f"Saved final model to {save_path}")

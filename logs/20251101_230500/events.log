@@ -1,7 +1,0 @@
-2025-11-01T23:05:00.338841	--- System Information ---
-2025-11-01T23:05:00.338908	Operating System: Darwin 25.0.0
-2025-11-01T23:05:00.352091	Processor: arm
-2025-11-01T23:05:00.352187	CPU Cores: 8
-2025-11-01T23:05:00.352253	Memory: 16.00 GB
-2025-11-01T23:05:00.352282	--------------------------
-2025-11-01T23:05:43.607878	Generated 68 pseudo-label(s) to data/pseudo_labels using models/baseline.pth
