@@ -82,7 +82,7 @@ Mô hình sẽ sử dụng trọng số từ Stage 1 và bắt đầu quy trình
 
 ```bash
 python -m src.main final
-```
+``` 
 
 ### Chạy toàn bộ quy trình (Khuyến nghị)
 
