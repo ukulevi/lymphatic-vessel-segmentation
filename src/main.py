@@ -82,6 +82,8 @@ def train_baseline(config: ExperimentConfig, logger: TrainingLogger):
     # Save final model
     save_path = os.path.join(config.paths.model_dir, "baseline.pth")
     save_checkpoint(model, save_path)
+    if logger:
+        logger.log_model_path(save_path)
     print(f"Saved baseline model to {save_path}")
     
     return model
@@ -242,6 +244,8 @@ def train_final(config: ExperimentConfig, logger: TrainingLogger):
     os.makedirs(config.paths.model_dir, exist_ok=True)
     save_path = os.path.join(config.paths.model_dir, "final.pth")
     save_checkpoint(model, save_path)
+    if logger:
+        logger.log_model_path(save_path)
     print(f"Saved final model to {save_path}")
 
     return model

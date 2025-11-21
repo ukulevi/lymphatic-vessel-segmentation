@@ -153,8 +153,12 @@ class Trainer:
                 else:
                     final_output = outputs
 
-                # The criterion will handle single tensor input correctly
-                loss = self.criterion(final_output, masks.float())
+                # During validation, we only care about the loss on the main output.
+                # Use the inner criterion to avoid applying deep supervision weights.
+                if isinstance(self.criterion, DeepSupervisionLoss):
+                    loss = self.criterion.criterion(final_output, masks.float())
+                else:
+                    loss = self.criterion(final_output, masks.float())
 
                 total_loss += loss.item()
                 

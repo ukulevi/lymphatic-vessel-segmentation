@@ -83,7 +83,7 @@ def create_strong_transform(p=0.5):
             A.RandomBrightnessContrast(p=1.0),
             A.RandomGamma(p=1.0)
         ], p=p),
-        A.CoarseDropout(max_holes=8, max_height=32, max_width=32, p=p),
+        A.CoarseDropout(num_holes_range=(8, 8), hole_height_range=(1, 32), hole_width_range=(1, 32), p=p),
         A.Normalize(**NORMALIZE_PARAMS),
         ToTensorV2()
     ])

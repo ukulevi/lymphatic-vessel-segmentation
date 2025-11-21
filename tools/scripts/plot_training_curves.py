@@ -1,7 +1,7 @@
 import os
 import sys
 import json
-from src.visualization import plot_loss_curve, plot_training_curves_from_csv
+from src.visualization import plot_training_curves, visualize_evaluation_table
 
 def detect_model_type(log_folder):
     """Detect if the log is for a baseline or final model based on models.jsonl"""
@@ -104,6 +104,7 @@ def main():
         metrics_file = selected_log['metrics']
         log_type = selected_log['type']
         model_type_folder = selected_log['folder'].split('/')[0]
+        timestamp = selected_log['folder'].split('/')[-1] # Extract timestamp like 20251121_191506
         print(f"\n✓ Selected: {selected_log['folder']} ({log_type})")
     
     print(f"📄 Reading: {metrics_file}")
@@ -125,61 +126,37 @@ def main():
     model_dir = os.path.join("models", model_type_folder) if model_type_folder else "models"
     os.makedirs(model_dir, exist_ok=True)
 
-    # Processing by model type
-    if log_type == 'baseline':
-        # Baseline has k-fold CV
-        epoch_resets = sum(1 for i in range(1, len(df)) if df.iloc[i]['epoch'] < df.iloc[i-1]['epoch'])
-        num_folds = epoch_resets + 1 if epoch_resets > 0 else 1
-        
-        print(f"📈 Detected {num_folds} fold(s) (K-Fold CV)")
-        
-        choice = input("\nWhat do you want to see:\n  1. All folds\n  2. A specific fold (1-{0})\nSelect (1 or 2): ".format(num_folds)).strip()
-        
-        if choice == "2":
-            fold_num = input(f"Select fold (1-{num_folds}): ").strip()
-            try:
-                fold_num = int(fold_num)
-                if fold_num < 1 or fold_num > num_folds:
-                    print(f"Fold must be between 1-{num_folds}, showing fold 1")
-                    fold_num = 1
-            except:
-                print("Invalid number, showing fold 1")
-                fold_num = 1
-            
-            epochs_per_fold = total_rows // num_folds if num_folds > 0 else None
-            save_path = os.path.join(model_dir, f"baseline_training_loss_fold{fold_num}.png")
-            fig = plot_loss_curve(metrics_file, save_path=save_path, show_val=True, 
-                                 fold_number=fold_num, epochs_per_fold=epochs_per_fold)
-            print(f"✓ Loss curve for Fold {fold_num} has been saved to: {save_path}")
-        else:
-            save_path = os.path.join(model_dir, "baseline_training_loss_all_folds.png")
-            fig = plot_loss_curve(metrics_file, save_path=save_path, show_val=True)
-            print(f"✓ Loss curve (all folds) has been saved to: {save_path}")
+    # --- 1. Generate and save a simple loss-only curve ---
+    print("\n--- Generating Simple Loss Curve ---")
+    simple_filename = f"{model_type_folder}_{timestamp}_loss_curve.png"
+    simple_save_path = os.path.join(model_dir, simple_filename)
     
-    elif log_type.startswith('final'):
-        # Final model does not have k-fold, plotting directly
-        save_path = os.path.join(model_dir, f"{log_type}_training_loss.png")
-        fig = plot_loss_curve(metrics_file, save_path=save_path, show_val=True)
-        print(f"✓ Loss curve for {log_type.replace('_', ' ').upper()} Model has been saved to: {save_path}")
-    
-    else:
-        # Unknown type - plotting directly
-        save_path = os.path.join(model_dir, "training_loss_curve.png")
-        fig = plot_loss_curve(metrics_file, save_path=save_path, show_val=True)
-        print(f"✓ Loss curve has been saved to: {save_path}")
-    
-    # Display plot
-    print("\nDisplaying plot...")
-    import matplotlib.pyplot as plt
-    plt.show()
-    
-    # Option: Plot detailed curves
-    choice = input("\nDo you want to plot detailed curves with all metrics? (y/n): ").strip().lower()
-    if choice == 'y':
-        save_path_detailed = os.path.join(model_dir, f"{log_type}_training_curves_detailed.png")
-        fig_detailed = plot_training_curves_from_csv(metrics_file, save_path=save_path_detailed)
-        print(f"✓ Detailed plot has been saved to: {save_path_detailed}")
-        plt.show()
+    fig_simple = plot_training_curves(
+        metrics_file, 
+        save_path=simple_save_path, 
+        show_val=True, 
+        metrics_to_plot=['loss'] # Only plot the loss
+    )
+    print(f"✓ Simple loss curve saved to: {simple_save_path}")
 
+    # --- 2. Offer to plot and show detailed curves ---
+    choice = input("\nDo you want to see and save the detailed plot with all metrics? (y/n): ").strip().lower()
+    if choice == 'y':
+        print("\n--- Generating Detailed Metrics Plot ---")
+        detailed_filename = f"{model_type_folder}_{timestamp}_detailed_curves.png"
+        detailed_save_path = os.path.join(model_dir, detailed_filename)
+        
+        # Call plot_training_curves without specifying metrics_to_plot to get the default full set
+        fig_detailed = plot_training_curves(metrics_file, save_path=detailed_save_path, show_val=True)
+        print(f"✓ Detailed plot saved to: {detailed_save_path}")
+        
+        # Display the detailed plot
+        import matplotlib.pyplot as plt
+        plt.show()
+    else:
+        # If user says no, just show the simple plot we already generated
+        import matplotlib.pyplot as plt
+        plt.show()
+    
 if __name__ == "__main__":
     main()

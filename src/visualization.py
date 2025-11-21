@@ -33,16 +33,19 @@ def overlay_mask(image, mask, color=(0, 255, 0), alpha=0.5):
     overlay = cv2.addWeighted(image, 1 - alpha, colored_mask, alpha, 0)
     return overlay
 
-def visualize_evaluation_table(metrics_path, save_path, fold_number=None, epochs_per_fold=None):
+def visualize_evaluation_table(metrics_data, save_path, fold_number=None, epochs_per_fold=None):
     """
     Create a text-based table visualization of evaluation metrics using tabulate.
     Args:
-        metrics_path (str): Path to the metrics.csv file.
+        metrics_data (str or pd.DataFrame): Path to the metrics.csv file or a pandas DataFrame.
         save_path (str): Path to save the table text file.
         fold_number: The specific fold (1-N) to display. If None, all are shown.
         epochs_per_fold: Number of epochs per fold (auto-calculated if None).
     """
-    metrics_df = pd.read_csv(metrics_path)
+    if isinstance(metrics_data, pd.DataFrame):
+        metrics_df = metrics_data
+    else:
+        metrics_df = pd.read_csv(metrics_data)
 
     # --- Data Cleaning and Preparation ---
 
@@ -285,12 +288,22 @@ def plot_training_curves(metrics_csv_path, save_path=None, show_val=True, fold_n
 
     for i, metric in enumerate(metrics_to_plot):
         ax = axes[i]
-        train_metric = f'train_{metric}'
+        
+        # Find the correct training metric column. It could be 'train_loss', 'loss', or specific to the metric.
+        train_metric_name = None
+        if f'train_{metric}' in df.columns:
+            train_metric_name = f'train_{metric}'
+        elif metric == 'loss' and 'loss' in df.columns: # For Mean Teacher logs
+            train_metric_name = 'loss'
+        elif metric == 'loss' and 'train_loss' in df.columns: # For baseline logs
+            train_metric_name = 'train_loss'
+
         val_metric = f'val_{metric}'
 
-        if train_metric in df.columns:
-            ax.plot(epochs, df[train_metric], 'b-', label='Train', linewidth=2, marker='o', markersize=4)
-        if show_val and val_metric in df.columns:
+        # Plot training and validation curves
+        if train_metric_name and train_metric_name in df.columns:
+            ax.plot(epochs, df[train_metric_name], 'b-', label='Train', linewidth=2, marker='o', markersize=4)
+        if show_val and val_metric in df.columns and not df[val_metric].isnull().all():
             ax.plot(epochs, df[val_metric], 'r-', label='Val', linewidth=2, marker='s', markersize=4)
 
         ax.set_title(metric.replace('_', ' ').title(), fontsize=12, fontweight='bold')

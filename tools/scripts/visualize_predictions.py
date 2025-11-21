@@ -88,16 +88,16 @@ def main():
             else:
                 print(f"⚠️ Cannot detect baseline model: {baseline_path}")
             
-            # Visualize final models
-            for model_name_base in ["final_mt", "final_no_mt"]:
-                model_path = os.path.join(config.paths.model_dir, f"{model_name_base}.pth")
-                output_path = os.path.join(config.paths.model_dir, f"{model_name_base}_predictions.png")
-                
-                if os.path.exists(model_path):
-                    print(f"\n📊 VISUALIZING {model_name_base.replace('_', ' ').upper()} MODEL for {config.type}")
-                    visualize_model_predictions(model_path, output_path, config, device)
-                else:
-                    print(f"⚠️ Cannot detect {model_name_base} model: {model_path}")
+            # Visualize final model
+            model_name_base = "final"
+            model_path = os.path.join(config.paths.model_dir, f"{model_name_base}.pth")
+            output_path = os.path.join(config.paths.model_dir, f"{model_name_base}_predictions.png")
+            
+            if os.path.exists(model_path):
+                print(f"\n📊 VISUALIZING FINAL MODEL for {config.type}")
+                visualize_model_predictions(model_path, output_path, config, device)
+            else:
+                print(f"⚠️ Cannot detect final model: {model_path}")
 
         except Exception as e:
             print(f"Error processing {config_file}: {e}")

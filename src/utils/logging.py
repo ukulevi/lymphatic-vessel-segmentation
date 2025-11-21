@@ -10,20 +10,13 @@ from datetime import datetime
 class TrainingLogger:
     """Log training metrics and config to CSV/JSON"""
     
-    def __init__(self, log_dir, experiment_name=None):
+    def __init__(self, base_log_dir: str):
         """
         Args:
-            log_dir: Directory to save logs
-            experiment_name: Optional name, defaults to timestamp
+            base_log_dir: The base directory (e.g., 'logs/Human') where the timestamped log folder will be created.
         """
-        self.log_dir = log_dir
-        if experiment_name is None:
-            experiment_name = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.experiment_name = experiment_name
-        
-        # Create log directory
-        self.experiment_dir = os.path.join(log_dir, experiment_name)
-        os.makedirs(self.experiment_dir, exist_ok=True)
+        self.base_log_dir = base_log_dir
+        self.experiment_dir = self._create_log_dir()
         
         # Initialize metrics log
         self.metrics_file = os.path.join(self.experiment_dir, "metrics.csv")
@@ -34,6 +27,13 @@ class TrainingLogger:
         config_file = os.path.join(self.experiment_dir, "config.json")
         with open(config_file, "w") as f:
             json.dump(config, f, indent=2)
+
+    def _create_log_dir(self) -> str:
+        """Create a timestamped directory for the current run."""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_dir = os.path.join(self.base_log_dir, timestamp)
+        os.makedirs(log_dir, exist_ok=True)
+        return log_dir
             
     def log_metrics(self, metrics):
         """Append a single metrics row to CSV.
@@ -63,6 +63,23 @@ class TrainingLogger:
         except Exception:
             pass
         print(message)
+
+    def log_model_path(self, model_path: str):
+        """
+        Logs the path of a saved model to models.jsonl.
+        This helps the plotting script identify the model type.
+        """
+        if not self.experiment_dir:
+            return
+        
+        models_log_file = os.path.join(self.experiment_dir, "models.jsonl")
+        log_entry = {"path": model_path.replace("\\", "/")} # Use forward slashes for consistency
+        
+        try:
+            with open(models_log_file, 'a') as f:
+                f.write(json.dumps(log_entry) + '\n')
+        except Exception as e:
+            print(f"Warning: Could not write to models.jsonl: {e}")
 
 
 def get_logger(name: str) -> _pylogging.Logger:

@@ -102,12 +102,21 @@ class MeanTeacherTrainer(Trainer):
             inner_loss.update_alpha(epoch)
 
         # Iterate qua labeled và unlabeled data
-        labeled_iter = iter(labeled_loader) if labeled_loader else None
-        unlabeled_iter = iter(unlabeled_loader) if unlabeled_loader else None
+        # Ensure we can loop through the smaller dataset if datasets have different lengths
+        if len(labeled_loader) > len(unlabeled_loader):
+            unlabeled_iter = iter(torch.utils.data.dataloader.DataLoader(unlabeled_loader.dataset, batch_size=unlabeled_loader.batch_size, shuffle=True, num_workers=unlabeled_loader.num_workers, pin_memory=True))
+            labeled_iter = iter(labeled_loader)
+            num_batches = len(labeled_loader)
+        else:
+            labeled_iter = iter(torch.utils.data.dataloader.DataLoader(labeled_loader.dataset, batch_size=labeled_loader.batch_size, shuffle=True, num_workers=labeled_loader.num_workers, pin_memory=True))
+            unlabeled_iter = iter(unlabeled_loader)
+            num_batches = len(unlabeled_loader)
         
-        num_batches = len(labeled_loader) if labeled_loader else 0
-        if unlabeled_loader:
-            num_batches = max(num_batches, len(unlabeled_loader))
+        # Fallback if one loader is missing
+        if not labeled_loader:
+            num_batches = len(unlabeled_loader)
+        if not unlabeled_loader:
+            num_batches = len(labeled_loader)
         
         pbar = tqdm(range(num_batches), desc=f"Epoch {epoch+1}")
         
@@ -119,7 +128,7 @@ class MeanTeacherTrainer(Trainer):
             # 1. Process labeled data (supervised loss)
             supervised_loss = None
             
-            if labeled_iter:
+            if labeled_loader:
                 try:
                     labeled_batch = next(labeled_iter)
                     if isinstance(labeled_batch, dict):
@@ -140,12 +149,12 @@ class MeanTeacherTrainer(Trainer):
                     has_labeled = True
                     
                 except StopIteration:
-                    pass
+                    continue # Should not happen with the new iterator logic
             
             # 2. Process unlabeled data (consistency loss)
             consistency_loss = None
             
-            if unlabeled_iter and consistency_weight > 0:
+            if unlabeled_loader and consistency_weight > 0:
                 try:
                     unlabeled_batch = next(unlabeled_iter)
                     if isinstance(unlabeled_batch, dict):
@@ -173,7 +182,7 @@ class MeanTeacherTrainer(Trainer):
                     has_unlabeled = True
                     
                 except StopIteration:
-                    pass
+                    continue # Should not happen with the new iterator logic
             
             # 3. Total loss (chỉ backward nếu có ít nhất 1 loss)
             if has_labeled or has_unlabeled:
@@ -256,8 +265,12 @@ class MeanTeacherTrainer(Trainer):
                 else:
                     main_prediction = predictions
                 
-                # The criterion will use the inner loss for a single tensor input
-                loss = self.criterion(main_prediction, masks.float())
+                # During validation, use the inner criterion to avoid deep supervision weights.
+                if isinstance(self.criterion, DeepSupervisionLoss):
+                    loss = self.criterion.criterion(main_prediction, masks.float())
+                else:
+                    loss = self.criterion(main_prediction, masks.float())
+
                 total_loss += loss.item()
                 
                 # Collect predictions và targets cho metrics
