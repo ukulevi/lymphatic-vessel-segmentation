@@ -9,12 +9,15 @@ import torch.nn as nn
 import segmentation_models_pytorch as smp
 from ..config import ModelConfig
 from .cto.CTO_net import CTO
+from .cto_stitchvit.CTO_net import CTO as CTO_StitchViT
 
 def get_model(config: ModelConfig) -> nn.Module:
     """
     Build segmentation model from config
     """
-    if config.name.lower() == "unetpp":
+    model_name = config.name.lower()
+    
+    if model_name == "unetpp":
         # Check for deep supervision flag in model params
         deep_supervision = False
         if config.params and 'deep_supervision' in config.params:
@@ -29,8 +32,10 @@ def get_model(config: ModelConfig) -> nn.Module:
             activation=None,
             deep_supervision=deep_supervision
         )
-    elif config.name.lower() == "cto":
+    elif model_name == "cto":
         model = CTO(seg_classes=config.classes)
+    elif model_name == "cto_stitchvit":
+        model = CTO_StitchViT(seg_classes=config.classes)
     else:
         raise ValueError(f"Unknown model: {config.name}")
     

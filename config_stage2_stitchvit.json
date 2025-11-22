@@ -5,38 +5,38 @@
             256,
             256
         ],
-        "batch_size": 4,
+        "batch_size": 2,
         "num_workers": 6,
         "train_ratio": 0.8,
         "val_ratio": 0.1,
         "test_ratio": 0.1
     },
     "model": {
-        "name": "cto",
+        "name": "cto_stitchvit",
         "activation": "sigmoid",
-        "classes": 1,
-        "params": {
-            "fusion_weights": [0.4, 0.3, 0.2, 0.1]
-        }
+        "classes": 1
     },
     "training": {
-    "epochs": 50,
-    "batch_size": 4,
-    "learning_rate": 3e-4,
+    "epochs": 10,
+    "batch_size": 2,
+    "learning_rate": 3e-5,
     "k_folds": 1,
-    "early_stop_patience": 10,
+    "early_stop_patience": 8,
     "weight_decay": 1e-5,
     "device": "auto",
     "loss_type": "combined",
-    "aux_weights": [0.4, 0.4, 0.2, 0.2],
     "alpha_schedule": "rebalance",
     "initial_alpha": 0.1,
-    "alpha_increment": 0.01
+    "alpha_increment": 0.01,
+    "aux_weights": [0.4, 0.4, 0.2, 0.2],
+    "ema_decay": 0.999,
+    "consistency_weight": 0.2,
+    "consistency_rampup": 5
     },
     "augmentation": {
         "train_prob": 0.5,
-        "weak_prob": 0.3,
-        "strong_prob": 0.5
+        "weak_prob": 0.5,
+        "strong_prob": 0.8
     },
     "paths": {
         "data_dir": "data",

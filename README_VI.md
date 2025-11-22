@@ -5,6 +5,7 @@ Dự án này cung cấp một quy trình bán giám sát (semi-supervised) đ�
 ## Tính năng nổi bật
 
 * **Kiến trúc UNet++:** Mô hình học sâu mạnh mẽ chuyên biệt cho phân đoạn hình ảnh y tế.
+* **Mô hình nâng cao Stitch-ViT**: Một mô hình thay thế tích hợp Vision Transformer (ViT) với cơ chế ghép nối (stitching) để có khả năng trích xuất đặc trưng tốt hơn.
 * **Học bán giám sát (Mean Teacher):** Tự động cải thiện độ chính xác bằng cách học từ dữ liệu video chưa được gán nhãn thông qua cơ chế giáo viên-học sinh (Teacher-Student).
 * **Hàm mất mát nhận biết đường viền:** Kết hợp Dice Loss và Boundary Loss để phân đoạn chính xác các cạnh mạch máu nhỏ.
 * **Quy trình 2 giai đoạn tinh gọn:**
@@ -21,6 +22,8 @@ Dự án này cung cấp một quy trình bán giám sát (semi-supervised) đ�
 ├── config.json              # Cấu hình chung (chọn type: Human hoặc Rat)
 ├── config_stage1.json       # Cấu hình cho Stage 1 (Baseline)
 ├── config_stage2.json       # Cấu hình cho Stage 2 (Final - Mean Teacher)
+├── config_stage1_stitchvit.json # Cấu hình cho Stage 1 (Stitch-ViT)
+├── config_stage2_stitchvit.json # Cấu hình cho Stage 2 (Stitch-ViT)
 ├── data/
 │   ├── annotated/           # Chứa ảnh gốc và file JSON nhãn (Human/Rat)
 │   ├── masks/               # Chứa ảnh mặt nạ nhị phân sau khi convert
@@ -92,6 +95,26 @@ Lệnh này sẽ chạy tuần tự Stage 1 -> Stage 2 và tự động trực q
 python -m src.main all --visualize
 ```
 
+### Chạy mô hình Stitch-ViT
+
+Để sử dụng mô hình Stitch-ViT, chỉ định các file cấu hình của nó bằng flag `--config`.
+
+**Stage 1 (Stitch-ViT):**
+```bash
+python -m src.main baseline --config config_stage1_stitchvit.json
+```
+
+**Stage 2 (Stitch-ViT):**
+```bash
+python -m src.main final --config config_stage2_stitchvit.json
+```
+
+**Toàn bộ quy trình (Stitch-ViT):**
+```bash
+python -m src.main all --config config_stage1_stitchvit.json --visualize
+python -m src.main all --config config_stage2_stitchvit.json --visualize
+```
+
 ### Các tùy chọn khác (Flags)
 
 *   `--config <path>`: Sử dụng file config tùy chỉnh.
@@ -135,6 +158,14 @@ python -m tools.scripts.plot_training_curves
 
 ```bash
 python -m src.main visualize_eval
+```
+
+### 4. So sánh các mô hình
+
+So sánh kết quả dự đoán của hai mô hình khác nhau.
+
+```bash
+python -m tools.scripts.compare_models --log-dir1 <đường_dẫn_tới_log_model1> --log-dir2 <đường_dẫn_tới_log_model2>
 ```
 
 ## GUI Application

@@ -84,8 +84,8 @@ class Trainer:
             self.model_config.params.get('deep_supervision', False)
         )
 
-        # Apply deep supervision loss wrapper if the model is 'cto' or if deep supervision is explicitly enabled
-        if self.model_config.name == 'cto' or deep_supervision_enabled:
+        # Apply deep supervision loss wrapper if the model name indicates it or if deep supervision is explicitly enabled
+        if self.model_config.name in ('cto', 'cto_stitchvit') or deep_supervision_enabled:
             # Get aux_weights from config, with a fallback to the default in DeepSupervisionLoss
             aux_weights = getattr(self.config, 'aux_weights', None)
             if aux_weights:

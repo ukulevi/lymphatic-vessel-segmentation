@@ -12,7 +12,7 @@
         "test_ratio": 0.1
     },
     "model": {
-        "name": "cto",
+        "name": "cto_stitchvit",
         "activation": "sigmoid",
         "classes": 1,
         "params": {

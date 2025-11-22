@@ -33,85 +33,108 @@ def overlay_mask(image, mask, color=(0, 255, 0), alpha=0.5):
     overlay = cv2.addWeighted(image, 1 - alpha, colored_mask, alpha, 0)
     return overlay
 
-def visualize_evaluation_table(metrics_data, save_path, fold_number=None, epochs_per_fold=None):
+def visualize_evaluation_table(metrics_data=None, save_path=None, fold_number=None, epochs_per_fold=None, df_main=None, df_compare=None, model_labels=('Model A', 'Model B')):
     """
-    Create a text-based table visualization of evaluation metrics using tabulate.
+    Create a text-based table of evaluation metrics.
+    Handles single model from CSV/DataFrame or comparison of two models.
+    
     Args:
-        metrics_data (str or pd.DataFrame): Path to the metrics.csv file or a pandas DataFrame.
-        save_path (str): Path to save the table text file.
-        fold_number: The specific fold (1-N) to display. If None, all are shown.
-        epochs_per_fold: Number of epochs per fold (auto-calculated if None).
+        metrics_data (str or pd.DataFrame, optional): Path to metrics.csv or a DataFrame for a single model.
+        save_path (str, optional): Path to save the table text file.
+        fold_number (int, optional): The specific fold to display.
+        epochs_per_fold (int, optional): Number of epochs per fold.
+        df_main (pd.DataFrame, optional): DataFrame for the first model (for comparison).
+        df_compare (pd.DataFrame, optional): DataFrame for the second model (for comparison).
+        model_labels (tuple, optional): Names for the models being compared.
     """
-    if isinstance(metrics_data, pd.DataFrame):
-        metrics_df = metrics_data
+    is_comparison = df_main is not None and df_compare is not None
+
+    # --- Data Cleaning Function ---
+    def clean_df(df):
+        df = df.dropna(axis=1, how='all')
+        def clean_tensor_str(val):
+            if isinstance(val, str) and 'tensor' in val:
+                match = re.search(r"tensor\((.*?)[,)]", val)
+                return float(match.group(1)) if match else np.nan
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return np.nan
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                df[col] = df[col].apply(clean_tensor_str)
+        return df
+
+    if is_comparison:
+        # --- Comparison Logic ---
+        df1 = clean_df(df_main.copy())
+        df2 = clean_df(df_compare.copy())
+        
+        # Get the last row (best epoch) for each model
+        summary1 = df1.iloc[-1:].copy()
+        summary2 = df2.iloc[-1:].copy()
+        
+        summary1.insert(0, 'Model', model_labels[0])
+        summary2.insert(0, 'Model', model_labels[1])
+        
+        # Combine summaries and set Model as index
+        combined_summary = pd.concat([summary1, summary2], ignore_index=True)
+        
+        # Select relevant validation metrics, if available
+        val_cols = [col for col in combined_summary.columns if col.startswith('val_')]
+        if not val_cols: # Fallback to train if no val
+            val_cols = [col for col in combined_summary.columns if not col in ['Model', 'epoch']]
+            
+        display_cols = ['Model'] + val_cols
+        combined_summary = combined_summary[display_cols].round(4)
+        
+        # Transpose for a vertical comparison table
+        table_df = combined_summary.set_index('Model').T
+
+        title = f"\n{'='*80}\nMETRICS COMPARISON: {model_labels[0]} vs {model_labels[1]}\n{'='*80}\n"
+        table = tabulate(table_df, headers='keys', tablefmt='grid')
+        full_table = title + table
+        
+    elif metrics_data is not None:
+        # --- Single Model Logic ---
+        if isinstance(metrics_data, pd.DataFrame):
+            metrics_df = metrics_data
+        else:
+            metrics_df = pd.read_csv(metrics_data)
+
+        metrics_df = clean_df(metrics_df.copy())
+        
+        # Add fold column if k-fold is detected
+        if 'epoch' in metrics_df.columns and (metrics_df['epoch'].diff() < 0).any():
+            metrics_df.insert(0, 'fold', (metrics_df['epoch'].diff() < 0).cumsum() + 1)
+
+        if fold_number is not None and epochs_per_fold is not None:
+            start_idx = (fold_number - 1) * epochs_per_fold
+            end_idx = fold_number * epochs_per_fold
+            metrics_df = metrics_df.iloc[start_idx:end_idx].copy()
+            metrics_df['epoch'] = range(1, len(metrics_df) + 1)
+            title_suffix = f" - Fold {fold_number}"
+        else:
+            title_suffix = ""
+
+        numeric_cols = metrics_df.select_dtypes(include=np.number).columns
+        metrics_df[numeric_cols] = metrics_df[numeric_cols].round(4)
+
+        table = tabulate(metrics_df, headers='keys', tablefmt='grid', showindex=False)
+        title = f"\n{'='*80}\nTRAINING METRICS SUMMARY{title_suffix}\n{'='*80}\n\n"
+        full_table = title + table
     else:
-        metrics_df = pd.read_csv(metrics_data)
+        raise ValueError("Either 'metrics_data' or both 'df_main' and 'df_compare' must be provided.")
 
-    # --- Data Cleaning and Preparation ---
-
-    # 1. Drop completely empty columns to clean up the table
-    original_cols = metrics_df.columns
-    metrics_df = metrics_df.dropna(axis=1, how='all')
-    dropped_cols = set(original_cols) - set(metrics_df.columns)
-    if dropped_cols:
-        print(f"  (i) Dropping empty columns: {sorted(list(dropped_cols))}")
-
-    # 2. Define a function to clean tensor string representations
-    def clean_tensor_str(val):
-        if isinstance(val, str) and 'tensor' in val:
-            match = re.search(r"tensor\((.*?)[,)]", val)
-            if match:
-                try:
-                    return float(match.group(1))
-                except (ValueError, TypeError):
-                    return np.nan # Return NaN if conversion fails
-        try:
-            return float(val)
-        except (ValueError, TypeError):
-            return np.nan # Return NaN for non-numeric strings
-
-    # 3. Apply cleaning to all columns that are not purely numeric
-    for col in metrics_df.columns:
-        if metrics_df[col].dtype == 'object':
-            metrics_df[col] = metrics_df[col].apply(clean_tensor_str)
-
-    # 4. Add a 'fold' column for clarity if k-fold is detected
-    if 'epoch' in metrics_df.columns and (metrics_df['epoch'].diff() < 0).any():
-        print("  (i) K-fold data detected, adding 'fold' column for clarity.")
-        metrics_df.insert(0, 'fold', (metrics_df['epoch'].diff() < 0).cumsum() + 1)
-
-    # 5. Handle fold-specific display if requested
-    if fold_number is not None and epochs_per_fold is not None:
-        start_idx = (fold_number - 1) * epochs_per_fold
-        end_idx = fold_number * epochs_per_fold
-        metrics_df = metrics_df.iloc[start_idx:end_idx].copy()
-        metrics_df['epoch'] = range(1, len(metrics_df) + 1)
-        title_suffix = f" - Fold {fold_number}"
+    # Save the table
+    if save_path:
+        with open(save_path, 'w', encoding='utf-8') as f:
+            f.write(full_table)
+        print(f"Comparison table saved to {save_path}")
     else:
-        title_suffix = ""
+        print(full_table)
 
-    # 6. Round all numeric columns for better readability
-    numeric_cols = metrics_df.select_dtypes(include=np.number).columns
-    metrics_df[numeric_cols] = metrics_df[numeric_cols].round(4)
-
-    # --- Table Generation ---
-
-    # Generate the table using tabulate
-    table = tabulate(metrics_df, headers='keys', tablefmt='grid', showindex=False)
-    
-    title = f"\n{'='*80}\nTRAINING METRICS SUMMARY{title_suffix}\n{'='*80}\n\n"
-    full_table = title + table
-    
-    # Save the table to a text file
-    with open(save_path, 'w', encoding='utf-8') as f:
-        f.write(full_table)
-    
-    # Print summary instead of full table
-    if fold_number:
-        print(f"✓ Fold {fold_number}: {len(metrics_df)} epochs")
-    else:
-        print(f"✓ Total: {len(metrics_df)} epochs")
-    print(f"  Saved to: {save_path}")
+    return full_table
 
 def post_process_mask(mask, min_size=100, morph_kernel_size=3):
     """
@@ -248,31 +271,40 @@ def visualize_predictions(model, dataset, num_samples=4, device='cuda', use_post
 
 
 
-def plot_training_curves(metrics_csv_path, save_path=None, show_val=True, fold_number=None, epochs_per_fold=None, metrics_to_plot=None):
+def plot_training_curves(metrics_csv_path=None, save_path=None, show_val=True, fold_number=None, epochs_per_fold=None, metrics_to_plot=None, df_main=None, df_compare=None, model_labels=('Model A', 'Model B')):
     """
-    Plot training curves from a metrics.csv file.
-    This function can plot a simple loss curve or a comprehensive set of metrics.
+    Plot training curves. Handles single model from CSV or comparison of two models from DataFrames.
 
     Args:
-        metrics_csv_path (str): Path to the metrics.csv file.
-        save_path (str, optional): Path to save the figure. Defaults to None.
-        show_val (bool, optional): Whether to show validation metrics. Defaults to True.
-        fold_number (int, optional): The specific fold (1-N) to display. If None, all are shown.
+        metrics_csv_path (str, optional): Path to the metrics.csv file for single model plotting.
+        save_path (str, optional): Path to save the figure.
+        show_val (bool, optional): Whether to show validation metrics.
+        fold_number (int, optional): The specific fold (1-N) to display.
         epochs_per_fold (int, optional): Number of epochs per fold.
-        metrics_to_plot (list, optional): A list of metrics to plot. If None, plots a default set.
-                                           Example: ['loss', 'iou', 'dice']
+        metrics_to_plot (list, optional): List of metrics to plot (e.g., ['loss', 'iou']).
+        df_main (pd.DataFrame, optional): DataFrame for the first model (for comparison).
+        df_compare (pd.DataFrame, optional): DataFrame for the second model (for comparison).
+        model_labels (tuple, optional): A tuple of names for the models being compared.
     """
-    df = pd.read_csv(metrics_csv_path)
+    is_comparison = df_main is not None and df_compare is not None
 
-    if fold_number is not None and epochs_per_fold is not None:
-        start_idx = (fold_number - 1) * epochs_per_fold
-        end_idx = fold_number * epochs_per_fold
-        df_filtered = df.iloc[start_idx:end_idx].copy()
-        df_filtered['epoch'] = range(1, len(df_filtered) + 1)
-        df = df_filtered
-        title_suffix = f" - Fold {fold_number}"
+    if is_comparison:
+        dfs = {model_labels[0]: df_main, model_labels[1]: df_compare}
+        title_suffix = f" - {model_labels[0]} vs {model_labels[1]}"
+    elif metrics_csv_path:
+        df = pd.read_csv(metrics_csv_path)
+        if fold_number is not None and epochs_per_fold is not None:
+            start_idx = (fold_number - 1) * epochs_per_fold
+            end_idx = fold_number * epochs_per_fold
+            df_filtered = df.iloc[start_idx:end_idx].copy()
+            df_filtered['epoch'] = range(1, len(df_filtered) + 1)
+            df = df_filtered
+            title_suffix = f" - Fold {fold_number}"
+        else:
+            title_suffix = ""
+        dfs = {"single_model": df}
     else:
-        title_suffix = ""
+        raise ValueError("Either 'metrics_csv_path' or both 'df_main' and 'df_compare' must be provided.")
 
     if metrics_to_plot is None:
         metrics_to_plot = ['loss', 'iou', 'dice', 'pixel_acc', 'boundary_f1']
@@ -284,27 +316,35 @@ def plot_training_curves(metrics_csv_path, save_path=None, show_val=True, fold_n
 
     fig.suptitle(f'Training Curves{title_suffix}', fontsize=16, fontweight='bold')
 
-    epochs = df['epoch'].values
+    colors = {'Train': 'b', 'Val': 'r'}
+    linestyles = {model_labels[0]: '-', model_labels[1]: '--'}
 
     for i, metric in enumerate(metrics_to_plot):
         ax = axes[i]
         
-        # Find the correct training metric column. It could be 'train_loss', 'loss', or specific to the metric.
-        train_metric_name = None
-        if f'train_{metric}' in df.columns:
-            train_metric_name = f'train_{metric}'
-        elif metric == 'loss' and 'loss' in df.columns: # For Mean Teacher logs
-            train_metric_name = 'loss'
-        elif metric == 'loss' and 'train_loss' in df.columns: # For baseline logs
-            train_metric_name = 'train_loss'
+        for model_name, df in dfs.items():
+            linestyle = linestyles.get(model_name, '-') if is_comparison else '-'
+            
+            epochs = df['epoch'].values
+            
+            # --- Plot Training Curve ---
+            train_metric_name = None
+            if f'train_{metric}' in df.columns:
+                train_metric_name = f'train_{metric}'
+            elif metric == 'loss' and 'loss' in df.columns: # For Mean Teacher logs
+                train_metric_name = 'loss'
+            elif metric == 'loss' and 'train_loss' in df.columns: # For baseline logs
+                train_metric_name = 'train_loss'
+            
+            if train_metric_name and train_metric_name in df.columns:
+                label = f'{model_name} Train' if is_comparison else 'Train'
+                ax.plot(epochs, df[train_metric_name], color=colors['Train'], linestyle=linestyle, label=label, marker='o', markersize=3, alpha=0.8)
 
-        val_metric = f'val_{metric}'
-
-        # Plot training and validation curves
-        if train_metric_name and train_metric_name in df.columns:
-            ax.plot(epochs, df[train_metric_name], 'b-', label='Train', linewidth=2, marker='o', markersize=4)
-        if show_val and val_metric in df.columns and not df[val_metric].isnull().all():
-            ax.plot(epochs, df[val_metric], 'r-', label='Val', linewidth=2, marker='s', markersize=4)
+            # --- Plot Validation Curve ---
+            val_metric = f'val_{metric}'
+            if show_val and val_metric in df.columns and not df[val_metric].isnull().all():
+                label = f'{model_name} Val' if is_comparison else 'Val'
+                ax.plot(epochs, df[val_metric], color=colors['Val'], linestyle=linestyle, label=label, marker='s', markersize=3, alpha=0.8)
 
         ax.set_title(metric.replace('_', ' ').title(), fontsize=12, fontweight='bold')
         ax.set_xlabel('Epoch')

@@ -13,7 +13,8 @@
     },
     "model": {
         "name": "cto",
-        "activation": "sigmoid"
+        "activation": "sigmoid",
+        "classes": 1
     },
     "training": {
     "epochs": 10,
@@ -21,7 +22,7 @@
     "learning_rate": 3e-5,
     "k_folds": 1,
     "early_stop_patience": 8,
-    "weight_decay": 1e-5,
+    "weight_decay": 0.05,
     "device": "auto",
     "loss_type": "combined",
     "alpha_schedule": "rebalance",
@@ -30,12 +31,12 @@
     "aux_weights": [0.4, 0.4, 0.2, 0.2],
     "ema_decay": 0.999,
     "consistency_weight": 0.2,
-    "consistency_rampup": 15
+    "consistency_rampup": 5
     },
     "augmentation": {
         "train_prob": 0.5,
-        "weak_prob": 0.3,
-        "strong_prob": 0.5
+        "weak_prob": 0.5,
+        "strong_prob": 0.8
     },
     "paths": {
         "data_dir": "data",

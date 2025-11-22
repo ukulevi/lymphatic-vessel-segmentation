@@ -385,9 +385,9 @@ def main():
         config.paths.unlabeled_dir = unlabeled_test_dir
         print(f"Running with test data from {config.paths.labeled_dir}")
         
-    # Create experiment logger only for stages that need it
+    # Create experiment logger
     logger = None
-    if args.stage in ["baseline", "final", "all"]:
+    if args.stage in ["baseline", "final"]:
         logger = TrainingLogger(config.paths.log_dir)
         print("\n" + "="*60)
         print("SYSTEM INFORMATION")
@@ -411,6 +411,27 @@ def main():
     # Run pipeline stages
     try:
         if args.stage in ["baseline", "all"]:
+            if args.stage == "all":
+                # Create logger for baseline stage
+                logger = TrainingLogger(config.paths.log_dir)
+                print("\n" + "="*60)
+                print("SYSTEM INFORMATION")
+                
+                device = config.training.device
+                if device == "auto":
+                    if torch.cuda.is_available():
+                        device = "cuda"
+                    elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                        device = "mps"
+                    else:
+                        device = "cpu"
+                config.training.device = device
+
+                print("="*60)
+                log_system_info(logger, device)
+                print("="*60 + "\n")
+                logger.log_config(config.to_dict())
+
             model = train_baseline(config, logger)
             if args.visualize and model is not None:
                 ds = LabeledVesselDataset(
@@ -441,7 +462,7 @@ def main():
                 if args.early_stop_patience is not None:
                     config.training.early_stop_patience = args.early_stop_patience
                 
-                # Re-run device detection for the new config
+                # Re-run device detection for the new config and create a new logger
                 device = config.training.device
                 if device == "auto":
                     if torch.cuda.is_available():
@@ -451,6 +472,15 @@ def main():
                     else:
                         device = "cpu"
                 config.training.device = device
+                
+                # Create a new logger for the final stage
+                logger = TrainingLogger(config.paths.log_dir)
+                print("\n" + "="*60)
+                print("SYSTEM INFORMATION FOR STAGE 2")
+                print("="*60)
+                log_system_info(logger, device)
+                print("="*60 + "\n")
+                logger.log_config(config.to_dict())
             
             model = train_final(config, logger)
             if args.visualize and model is not None:

@@ -5,6 +5,7 @@ This project provides a semi-supervised pipeline for segmenting lymphatic vessel
 ## Key Features
 
 * **UNet++ Architecture:** High-performance deep learning model for medical image segmentation.
+* **Stitch-ViT Enhanced Model**: An alternative model incorporating Vision Transformer (ViT) with a stitching mechanism for potentially improved feature extraction.
 * **Semi-Supervised Learning (Mean Teacher):** Improves accuracy by leveraging unlabeled video data through a Teacher-Student consistency mechanism.
 * **Boundary-Aware Loss:** Combines Dice Loss and Boundary Loss for precise edge detection.
 * **Streamlined 2-Stage Pipeline:**
@@ -21,6 +22,8 @@ This project provides a semi-supervised pipeline for segmenting lymphatic vessel
 ├── config.json              # Main config (select type: Human/Rat)
 ├── config_stage1.json       # Config for Stage 1 (Baseline)
 ├── config_stage2.json       # Config for Stage 2 (Final - Mean Teacher)
+├── config_stage1_stitchvit.json # Config for Stage 1 (Stitch-ViT)
+├── config_stage2_stitchvit.json # Config for Stage 2 (Stitch-ViT)
 ├── data/
 │   ├── annotated/           # Labeled images and JSON annotations
 │   ├── masks/               # Binary masks (converted from annotations)
@@ -92,6 +95,26 @@ Runs Stage 1 -> Stage 2 sequentially and automatically visualizes results upon c
 python -m src.main all --visualize
 ```
 
+### Running the Stitch-ViT Model
+
+To use the Stitch-ViT model, specify its configuration files using the `--config` flag.
+
+**Stage 1 (Stitch-ViT):**
+```bash
+python -m src.main baseline --config config_stage1_stitchvit.json
+```
+
+**Stage 2 (Stitch-ViT):**
+```bash
+python -m src.main final --config config_stage2_stitchvit.json
+```
+
+**Full Pipeline (Stitch-ViT):**
+```bash
+python -m src.main all --config config_stage1_stitchvit.json --visualize
+python -m src.main all --config config_stage2_stitchvit.json --visualize
+```
+
 ### Additional Flags
 
 *   `--config <path>`: Use a custom configuration file.
@@ -135,6 +158,14 @@ python -m tools.scripts.plot_training_curves
 
 ```bash
 python -m src.main visualize_eval
+```
+
+### 4. Compare Models
+
+Compares the prediction results of two models.
+
+```bash
+python -m tools.scripts.compare_models --log-dir1 <path_to_model1_logs> --log-dir2 <path_to_model2_logs>
 ```
 
 ## GUI Application
