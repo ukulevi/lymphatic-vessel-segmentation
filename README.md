@@ -2,8 +2,6 @@
 
 This project enhances and extends a foundational supervised learning pipeline by introducing a **semi-supervised** approach for segmenting lymphatic vessels. The core of this project is the implementation of the **Mean Teacher** algorithm to leverage large amounts of unlabeled video data, alongside the evaluation of advanced architectures like **CTO-Net** and **CTO Stitch-ViT**.
 
-**Presentation Video:** [Link to your 30-minute presentation video will be here]
-
 **Project Resources (Dataset, Models, Results):** [Google Drive Link](https://drive.google.com/drive/folders/1ORzUm1P5PK35O_L4YQ2L_IgIZZbkXi-0)
 
 ## Table of Contents
