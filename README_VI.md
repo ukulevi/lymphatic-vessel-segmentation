@@ -2,8 +2,6 @@
 
 Dự án này cải tiến và mở rộng một quy trình học có giám sát nền tảng bằng cách giới thiệu phương pháp **học bán giám sát (semi-supervised)** để phân vùng các mạch bạch huyết. Cốt lõi của dự án là việc triển khai thuật toán **Mean Teacher** để tận dụng một lượng lớn dữ liệu video không được gán nhãn, cùng với việc đánh giá các kiến trúc nâng cao như **CTO-Net** và **CTO Stitch-ViT**.
 
-**Video Thuyết Trình:** [Link đến video thuyết trình 30 phút của bạn sẽ ở đây]
-
 **Tài Nguyên Dự Án (Dataset, Models, Kết Quả):** [Google Drive Link](https://drive.google.com/drive/folders/1ORzUm1P5PK35O_L4YQ2L_IgIZZbkXi-0)
 
 ## Mục Lục
